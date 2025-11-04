@@ -1,4 +1,4 @@
-import { Pinecone } from '@pinecone-database/pinecone';
+import { Pinecone, RecordMetadata } from '@pinecone-database/pinecone';
 
 // Initialize Pinecone client
 let pineconeClient: Pinecone | null = null;
@@ -50,6 +50,45 @@ export async function upsertVectors(
   } catch (error) {
     throw new Error(
       `Failed to upsert vectors to Pinecone: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Queries Pinecone index for similar vectors
+ * @param indexName - Name of the Pinecone index
+ * @param queryVector - The embedding vector to search with
+ * @param topK - Number of top results to return
+ * @returns Promise resolving to array of matches with metadata
+ * @throws Error if query fails
+ */
+export async function queryVectors(
+  indexName: string,
+  queryVector: number[],
+  topK: number = 5
+): Promise<Array<{
+  id: string;
+  score: number;
+  metadata: RecordMetadata;
+}>> {
+  try {
+    const pinecone = getPineconeClient();
+    const index = pinecone.index(indexName);
+    
+    const queryResponse = await index.query({
+      vector: queryVector,
+      topK,
+      includeMetadata: true,
+    });
+
+    return queryResponse.matches.map((match) => ({
+      id: match.id,
+      score: match.score ?? 0,
+      metadata: match.metadata ?? {},
+    }));
+  } catch (error) {
+    throw new Error(
+      `Failed to query Pinecone: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }
